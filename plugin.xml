@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+        xmlns:rim="http://www.blackberry.com/ns/widgets"
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        id="org.alin.cordova.vedit"
+        version="0.0.1">
+    <name>video-editor</name>
+    <description>video transcoding&trimming&capture</description>
+    <license>MIT</license>
+    <keywords>transcode,trim,capture</keywords>
+    <js-module src="www/videoEditor.js" name="videoEditor">
+        <clobbers target="videoEditor" />
+    </js-module>
+
+    <!-- ios -->
+    <platform name="ios">
+        <config-file target="config.xml" parent="/*">
+            <feature name="VideoEditor">
+                <param name="ios-package" value="VideoEditor"/>
+            </feature>
+        </config-file>
+    </platform>
+</plugin>
