@@ -5,23 +5,34 @@ import UIKit
 
 @objc(VideoEditor) class VideoEditor : CDVPlugin {
     func edit(command: CDVInvokedUrlCommand) {
-        var sourceURL:String = command.argumentAtIndex(0) as String
-        NSLog("SOURCE URL: \(sourceURL)")
-        var pluginResult = CDVPluginResult(status: CDVCommandStatus_OK)
-        commandDelegate.sendPluginResult(pluginResult, callbackId:command.callbackId)
+        
+        var option:NSDictionary = command.argumentAtIndex(0)! as NSDictionary
+        var sourcePath = option.objectForKey("path")! as String
+        var opt = option.objectForKey("opt")! as String
+        
+        NSLog("SOURCE URL: \(sourcePath)")
+        NSLog("operation \(opt)")
+        
+        switch opt {
+            case "screenshot":
+                capture(sourcePath,command: command)
+            case "transcode":
+                transcode(sourcePath,command: command)
+            default:
+                var pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR)
+                commandDelegate.sendPluginResult(pluginResult, callbackId:command.callbackId)
+        }
+        
     }
 
     
     
-    func capture(sourcePath:String){
-        
+    func capture(sourcePath:String,command: CDVInvokedUrlCommand){
         var outputPath = sourcePath
         outputPath = outputPath.stringByDeletingPathExtension
         outputPath = outputPath.stringByAppendingString(".jpg")
         
-        var assetURL = NSURL.fileURLWithPath(sourcePath)
-        
-        var videoAsset:AVAsset = AVURLAsset.assetWithURL(assetURL) as AVAsset
+        var videoAsset:AVAsset = AVURLAsset.assetWithURL(NSURL.fileURLWithPath(sourcePath)) as AVAsset
         
         var generator:AVAssetImageGenerator = AVAssetImageGenerator(asset: videoAsset)
         
@@ -30,16 +41,28 @@ import UIKit
         var image = UIImage(CGImage: cgImage)
         
         var binaryImageData:NSData = UIImageJPEGRepresentation(image,0.5);
-        binaryImageData.writeToFile(outputPath, atomically: true)
         
-        var library:ALAssetsLibrary = ALAssetsLibrary()
-        library.writeImageToSavedPhotosAlbum(cgImage, orientation: ALAssetOrientation.Up) { (saved, err) -> Void in
-            NSLog("saved url : \(saved)")
+        var result = binaryImageData.writeToFile(outputPath, atomically: true)
+        
+        NSLog("capture video status :\(result)")
+        if result {
+            var data = NSDictionary(dictionary:["screenshot":outputPath])
+            var pluginResult = CDVPluginResult(status: CDVCommandStatus_OK,messageAsDictionary:data)
+            commandDelegate.sendPluginResult(pluginResult, callbackId:command.callbackId)
+        }else{
+            var pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR)
+            commandDelegate.sendPluginResult(pluginResult, callbackId:command.callbackId)
         }
+        
+//
+//        var library:ALAssetsLibrary = ALAssetsLibrary()
+//        library.writeImageToSavedPhotosAlbum(cgImage, orientation: ALAssetOrientation.Up) { (saved, err) -> Void in
+//            NSLog("saved url : \(saved)")
+//        }
     }
     
     
-    func transfer(sourceURL:String){
+    func transcode(sourceURL:String,command: CDVInvokedUrlCommand){
         
         //        var compatiblePresets:[AnyObject] = AVAssetExportSession.exportPresetsCompatibleWithAsset(videoAsset)
         
@@ -55,7 +78,6 @@ import UIKit
         
         var manager:NSFileManager = NSFileManager.defaultManager()
         var ext = manager.fileExistsAtPath(sourceURL)
-        NSLog(" file is exist \(ext)")
         
         var outputURL = sourceURL
         outputURL = outputURL.stringByDeletingPathExtension
@@ -72,15 +94,16 @@ import UIKit
         exportSession.outputFileType = stringOutputFileType;
         exportSession.shouldOptimizeForNetworkUse = optimizeForNetworkUse;
         
-        
+        var _self = self
         exportSession.exportAsynchronouslyWithCompletionHandler(){
             () -> Void in
             switch(exportSession.status){
             case .Completed:
-                NSLog("Success")
-                ext = manager.fileExistsAtPath(outputURL)
-                NSLog("output file is exist \(ext)")
-                self.writeVideoToPhotoLibrary(assetOutputURL!)
+                var data = NSDictionary(dictionary:["target":outputURL])
+                var pluginResult = CDVPluginResult(status: CDVCommandStatus_OK,messageAsDictionary:data)
+                _self.commandDelegate.sendPluginResult(pluginResult, callbackId:command.callbackId)
+                return
+                //                self.writeVideoToPhotoLibrary(assetOutputURL!)
             case .Unknown:
                 NSLog("Unknown")
             case .Waiting:
@@ -88,23 +111,24 @@ import UIKit
             case .Exporting:
                 NSLog("Exporting")
             case .Failed:
-                var _error = exportSession.error
-                
-                NSLog("Failed : \(_error)")
+                NSLog("Failed : \(exportSession.error)")
             case .Cancelled:
                 NSLog("Cancelled")
             default:
-                NSLog("ddd\(exportSession.status)")
+                NSLog("\(exportSession.status)")
             }
+            
+            var pluginResult = CDVPluginResult(status: CDVCommandStatus_ERROR)
+            _self.commandDelegate.sendPluginResult(pluginResult, callbackId:command.callbackId)
             
         }
     }
     
-    func writeVideoToPhotoLibrary(url:NSURL) {
-        var library:ALAssetsLibrary = ALAssetsLibrary()
-        if library.videoAtPathIsCompatibleWithSavedPhotosAlbum(url){
-            library.writeVideoAtPathToSavedPhotosAlbum(url, completionBlock: nil)
-        }
-    }
+//    func writeVideoToPhotoLibrary(url:NSURL) {
+//        var library:ALAssetsLibrary = ALAssetsLibrary()
+//        if library.videoAtPathIsCompatibleWithSavedPhotosAlbum(url){
+//            library.writeVideoAtPathToSavedPhotosAlbum(url, completionBlock: nil)
+//        }
+//    }
     
 }
